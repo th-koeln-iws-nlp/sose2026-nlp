@@ -136,6 +136,24 @@ jobs:
             echo "No session-specific prompt for session $SESSION, using default only"
           fi
 
+      - name: Fetch previous review comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch all comments on this issue, filter to LLM reviews only
+          gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            --paginate \
+            --jq '.[] | select(.body | startswith("## 🤖 LLM Code Review")) | .body' \
+            > /tmp/previous_reviews.txt || true
+
+          if [ -s /tmp/previous_reviews.txt ]; then
+            echo "Found previous reviews"
+          else
+            echo "No previous reviews found (first submission)"
+            echo "" > /tmp/previous_reviews.txt
+          fi
+
       - name: Get LLM feedback
         id: feedback
         env:
@@ -157,15 +175,34 @@ jobs:
           with open("/tmp/system_prompt.md", "r") as f:
               system_prompt = f.read()
 
+          with open("/tmp/previous_reviews.txt", "r") as f:
+              previous_reviews = f.read().strip()
+
           issue_body = os.environ.get("ISSUE_BODY", "No assignment description available.")
 
+          # --- Build user prompt ---
           user_prompt = f"""Here is the assignment description:
 
           {issue_body}
 
           Here is the student code:
 
-          {student_code}
+          {student_code}"""
+
+          if previous_reviews:
+              user_prompt += f"""
+
+          Here are your previous reviews of this assignment:
+
+          {previous_reviews}
+
+          The students have reworked their code based on your feedback.
+          Please review the updated code. Acknowledge improvements you 
+          suggested that were implemented. Focus new comments on remaining
+          issues or new problems. Do not repeat feedback that has been 
+          addressed."""
+          else:
+              user_prompt += """
 
           Please review this code."""
 
@@ -182,9 +219,15 @@ jobs:
 
           feedback_text = response.text
 
+          # --- Determine review round ---
+          review_round = previous_reviews.count("## 🤖 LLM Code Review") + 1
+
           # Write feedback to file
           with open("/tmp/feedback.md", "w") as f:
-              f.write("## 🤖 LLM Code Review\n\n")
+              if review_round > 1:
+                  f.write(f"## 🤖 LLM Code Review (Round {review_round})\n\n")
+              else:
+                  f.write("## 🤖 LLM Code Review\n\n")
               f.write(feedback_text)
               f.write("\n\n---\n*Automated review powered by Gemini. ")
               f.write("This is feedback, not a grade. Discuss with your team and your instructor.*")
