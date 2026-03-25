@@ -1,0 +1,29 @@
+[project]
+name = "sose2026-nlp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "en-core-web-sm",
+    "matplotlib>=3.10.8",
+    "nltk>=3.9.4",
+    "pandas>=3.0.1",
+    "plotly>=6.6.0",
+    "spacy>=3.8.11",
+    "spotipy>=2.26.0",
+    "wordcloud>=1.9.6",
+    "wordfreq>=3.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "marimo>=0.21.1",
+    "ruff>=0.15.7",
+    "ty>=0.0.24",
+    "python-dotenv>=1.2.2",
+]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }

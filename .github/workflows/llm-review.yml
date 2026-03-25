@@ -1,0 +1,195 @@
+name: LLM Code Review
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  review:
+    # Only run if the issue has the 'assignment' label
+    if: contains(github.event.issue.labels.*.name, 'assignment')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout student repository
+        uses: actions/checkout@v4
+
+      - name: Checkout internal repo (system prompts)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/sose2026-nlp-internal
+          token: ${{ secrets.INTERNAL_REPO_TOKEN }}
+          path: .internal
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install google-genai marimo
+
+      - name: Extract assignment number from issue title
+        id: parse
+        run: |
+          # Expects issue titles like "Assignment 04: Build a document search with TF-IDF"
+          SESSION=$(echo "${{ github.event.issue.title }}" | grep -oP 'Assignment \K[0-9]+' | sed 's/^0*//')
+          PADDED=$(printf "%02d" "$SESSION")
+          echo "session=$PADDED" >> "$GITHUB_OUTPUT"
+          echo "Detected session: $PADDED"
+
+      - name: Gather student code
+        id: gather
+        run: |
+          SESSION_DIR="assignments/${{ steps.parse.outputs.session }}_assignment"
+          if [ ! -d "$SESSION_DIR" ]; then
+            echo "::error::Directory $SESSION_DIR not found"
+            exit 1
+          fi
+
+          # Collect all .py files in the session directory
+          CODE=""
+          for f in $(find "$SESSION_DIR" -name "*.py" -type f | sort); do
+            CODE="$CODE
+          --- FILE: $f ---
+          $(cat "$f")
+          "
+          done
+
+          # Write to a file to avoid shell escaping issues
+          echo "$CODE" > /tmp/student_code.txt
+          echo "session_dir=$SESSION_DIR" >> "$GITHUB_OUTPUT"
+
+      # ── marimo check ──────────────────────────────────────────────
+      - name: Run marimo check
+        id: marimo_check
+        continue-on-error: true
+        run: |
+          SESSION_DIR="assignments/${{ steps.parse.outputs.session }}_assignment"
+          RESULT=""
+          EXIT_CODE=0
+
+          for f in $(find "$SESSION_DIR" -name "*.py" -type f | sort); do
+            echo "Checking $f ..."
+            OUTPUT=$(marimo check "$f" 2>&1) || EXIT_CODE=1
+            RESULT="$RESULT
+          ### \`$f\`
+          \`\`\`
+          $OUTPUT
+          \`\`\`
+          "
+          done
+
+          # Write marimo check results
+          {
+            echo "## 🔍 marimo check"
+            echo ""
+            if [ "$EXIT_CODE" -eq 0 ]; then
+              echo "All notebooks passed ✅"
+            else
+              echo "Some notebooks have issues ⚠️"
+            fi
+            echo ""
+            echo "$RESULT"
+          } > /tmp/marimo_check.md
+
+      - name: Post marimo check as issue comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body-file /tmp/marimo_check.md
+
+      # ── LLM feedback ──────────────────────────────────────────────
+      - name: Load system prompt
+        id: prompt
+        run: |
+          SESSION="${{ steps.parse.outputs.session }}"
+
+          # Always start with the default prompt
+          if [ -f ".internal/prompts/default.md" ]; then
+            cp ".internal/prompts/default.md" /tmp/system_prompt.md
+            echo "Loaded default prompt"
+          else
+            echo "::error::No default.md found in internal repo"
+            exit 1
+          fi
+
+          # Append session-specific prompt if it exists
+          if [ -f ".internal/prompts/session_${SESSION}.md" ]; then
+            echo "" >> /tmp/system_prompt.md
+            echo "---" >> /tmp/system_prompt.md
+            echo "" >> /tmp/system_prompt.md
+            echo "## Additional criteria for this assignment" >> /tmp/system_prompt.md
+            echo "" >> /tmp/system_prompt.md
+            cat ".internal/prompts/session_${SESSION}.md" >> /tmp/system_prompt.md
+            echo "Appended session-specific prompt for session $SESSION"
+          else
+            echo "No session-specific prompt for session $SESSION, using default only"
+          fi
+
+      - name: Get LLM feedback
+        id: feedback
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python << 'PYTHON_SCRIPT'
+          import os
+          from google import genai
+
+          # --- Init Gemini client (Vertex AI mode with API key) ---
+          api_key = os.environ["GEMINI_API_KEY"]
+          client = genai.Client(vertexai=True, api_key=api_key)
+
+          # --- Read inputs ---
+          with open("/tmp/student_code.txt", "r") as f:
+              student_code = f.read()
+
+          with open("/tmp/system_prompt.md", "r") as f:
+              system_prompt = f.read()
+
+          issue_body = os.environ.get("ISSUE_BODY", "No assignment description available.")
+
+          user_prompt = f"""Here is the assignment description:
+
+          {issue_body}
+
+          Here is the student code:
+
+          {student_code}
+
+          Please review this code."""
+
+          # --- Call Gemini ---
+          response = client.models.generate_content(
+              model="gemini-2.0-flash",
+              contents=user_prompt,
+              config=genai.types.GenerateContentConfig(
+                  system_instruction=system_prompt,
+                  temperature=0.3,
+                  max_output_tokens=4096,
+              ),
+          )
+
+          feedback_text = response.text
+
+          # Write feedback to file
+          with open("/tmp/feedback.md", "w") as f:
+              f.write("## 🤖 LLM Code Review\n\n")
+              f.write(feedback_text)
+              f.write("\n\n---\n*Automated review powered by Gemini. ")
+              f.write("This is feedback, not a grade. Discuss with your team and your instructor.*")
+
+          PYTHON_SCRIPT
+
+      - name: Post feedback as issue comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body-file /tmp/feedback.md
