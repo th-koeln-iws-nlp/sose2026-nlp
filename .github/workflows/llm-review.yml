@@ -21,7 +21,7 @@ jobs:
       - name: Checkout internal repo (system prompts)
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/nlp-ss2026-internal
+          repository: ${{ github.repository_owner }}/sose2026-nlp-internal
           token: ${{ secrets.INTERNAL_REPO_TOKEN }}
           path: .internal
 
