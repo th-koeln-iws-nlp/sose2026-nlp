@@ -21,7 +21,7 @@ jobs:
       - name: Checkout internal repo (system prompts)
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/sose2026-nlp-internal
+          repository: ${{ github.repository_owner }}/nlp-ss2026-internal
           token: ${{ secrets.INTERNAL_REPO_TOKEN }}
           path: .internal
 
@@ -71,11 +71,15 @@ jobs:
         run: |
           SESSION_DIR="assignments/${{ steps.parse.outputs.session }}_assignment"
           RESULT=""
-          EXIT_CODE=0
+          HAS_ISSUES=false
 
           for f in $(find "$SESSION_DIR" -name "*.py" -type f | sort); do
             echo "Checking $f ..."
-            OUTPUT=$(marimo check "$f" 2>&1) || EXIT_CODE=1
+            OUTPUT=$(marimo check "$f" 2>&1) || HAS_ISSUES=true
+            # Also detect warnings/issues in the output text
+            if echo "$OUTPUT" | grep -qiE "warning|error|Found [1-9]"; then
+              HAS_ISSUES=true
+            fi
             RESULT="$RESULT
           ### \`$f\`
           \`\`\`
@@ -88,10 +92,10 @@ jobs:
           {
             echo "## 🔍 marimo check"
             echo ""
-            if [ "$EXIT_CODE" -eq 0 ]; then
-              echo "All notebooks passed ✅"
-            else
+            if [ "$HAS_ISSUES" = true ]; then
               echo "Some notebooks have issues ⚠️"
+            else
+              echo "All notebooks passed ✅"
             fi
             echo ""
             echo "$RESULT"
@@ -167,7 +171,7 @@ jobs:
 
           # --- Call Gemini ---
           response = client.models.generate_content(
-              model="gemini-2.0-flash",
+              model="gemini-2.5-flash",
               contents=user_prompt,
               config=genai.types.GenerateContentConfig(
                   system_instruction=system_prompt,
