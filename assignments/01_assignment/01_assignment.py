@@ -8,7 +8,6 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
     import pandas as pd
-    import spacy
 
     return mo, pd
 
@@ -30,11 +29,6 @@ def _(pd):
 @app.cell
 def _(lyrics_df, mo):
     mo.ui.table(lyrics_df)
-    return
-
-
-@app.cell
-def _():
     return
 
 

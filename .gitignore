@@ -16,3 +16,7 @@ __marimo__/
 grading/
 TODO.md
 code_agent/
+scripts/
+.spotify_cache
+*.excalidraw
+notebooks/internal/

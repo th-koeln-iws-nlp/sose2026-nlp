@@ -64,6 +64,26 @@ jobs:
           echo "$CODE" > /tmp/student_code.txt
           echo "session_dir=$SESSION_DIR" >> "$GITHUB_OUTPUT"
 
+      - name: Gather template code
+        run: |
+          SESSION="${{ steps.parse.outputs.session }}"
+          TEMPLATE_DIR=".internal/assignments/${SESSION}_assignment"
+
+          if [ -d "$TEMPLATE_DIR" ]; then
+            TEMPLATE=""
+            for f in $(find "$TEMPLATE_DIR" -name "*.py" -type f | sort); do
+              TEMPLATE="$TEMPLATE
+          --- FILE: $(basename $f) ---
+          $(cat "$f")
+          "
+            done
+            echo "$TEMPLATE" > /tmp/template_code.txt
+            echo "Found template code for session $SESSION"
+          else
+            echo "" > /tmp/template_code.txt
+            echo "No template found for session $SESSION"
+          fi
+
       # ── marimo check ──────────────────────────────────────────────
       - name: Run marimo check
         id: marimo_check
@@ -178,14 +198,28 @@ jobs:
           with open("/tmp/previous_reviews.txt", "r") as f:
               previous_reviews = f.read().strip()
 
+          with open("/tmp/template_code.txt", "r") as f:
+              template_code = f.read().strip()
+
           issue_body = os.environ.get("ISSUE_BODY", "No assignment description available.")
 
           # --- Build user prompt ---
           user_prompt = f"""Here is the assignment description:
 
-          {issue_body}
+          {issue_body}"""
 
-          Here is the student code:
+          if template_code:
+              user_prompt += f"""
+
+          Here is the starter template I provided to the students. This is 
+          MY code, not theirs. Do NOT review or comment on this code. Only 
+          review code the students wrote or modified beyond this template:
+
+          {template_code}"""
+
+          user_prompt += f"""
+
+          Here is the student submission (which started from the template above):
 
           {student_code}"""
 
