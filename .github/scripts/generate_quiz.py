@@ -28,7 +28,7 @@ import sys
 import requests
 from google import genai
 
-ADMIN_GITHUB_USERNAMES = {"richardsiegth"}
+ADMIN_GITHUB_USERNAMES = {"richardsiegth", "RichardSiegTH"}
 COURSE_HUB_URL = os.environ["COURSE_HUB_URL"].rstrip("/")
 COURSE_HUB_API_TOKEN = os.environ["COURSE_HUB_API_TOKEN"]
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
