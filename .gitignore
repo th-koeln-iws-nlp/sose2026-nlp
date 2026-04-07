@@ -17,6 +17,7 @@ grading/
 TODO.md
 code_agent/
 scripts/
+!.github/scripts/
 .spotify_cache
 *.excalidraw
 notebooks/internal/
