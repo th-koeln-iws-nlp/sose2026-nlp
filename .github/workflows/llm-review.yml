@@ -18,20 +18,13 @@ jobs:
       - name: Checkout student repository
         uses: actions/checkout@v4
 
-      - name: Checkout internal repo (system prompts)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/sose2026-nlp-internal
-          token: ${{ secrets.INTERNAL_REPO_TOKEN }}
-          path: .internal
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install google-genai marimo
+        run: pip install google-genai marimo requests
 
       - name: Extract assignment number from issue title
         id: parse
@@ -51,7 +44,6 @@ jobs:
             exit 1
           fi
 
-          # Collect all .py files in the session directory
           CODE=""
           for f in $(find "$SESSION_DIR" -name "*.py" -type f | sort); do
             CODE="$CODE
@@ -60,28 +52,53 @@ jobs:
           "
           done
 
-          # Write to a file to avoid shell escaping issues
           echo "$CODE" > /tmp/student_code.txt
           echo "session_dir=$SESSION_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Gather template code
+      - name: Fetch prompts and session content from Course Hub
+        env:
+          COURSE_HUB_URL: ${{ secrets.COURSE_HUB_URL }}
+          COURSE_HUB_API_TOKEN: ${{ secrets.COURSE_HUB_API_TOKEN }}
         run: |
           SESSION="${{ steps.parse.outputs.session }}"
-          TEMPLATE_DIR=".internal/assignments/${SESSION}_assignment"
+          AUTH="Authorization: Bearer $COURSE_HUB_API_TOKEN"
 
-          if [ -d "$TEMPLATE_DIR" ]; then
-            TEMPLATE=""
-            for f in $(find "$TEMPLATE_DIR" -name "*.py" -type f | sort); do
-              TEMPLATE="$TEMPLATE
-          --- FILE: $(basename $f) ---
-          $(cat "$f")
-          "
-            done
-            echo "$TEMPLATE" > /tmp/template_code.txt
-            echo "Found template code for session $SESSION"
+          # Fetch review system prompt
+          HTTP=$(curl -s -o /tmp/prompt_response.json -w "%{http_code}" \
+            -H "$AUTH" "$COURSE_HUB_URL/api/content/prompt/review_system_prompt")
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Could not fetch review_system_prompt from Course Hub (HTTP $HTTP)"
+            exit 1
+          fi
+          python3 -c "import json; print(json.load(open('/tmp/prompt_response.json'))['content'])" \
+            > /tmp/system_prompt.md
+
+          # Fetch session content (template code + review addendum)
+          HTTP=$(curl -s -o /tmp/session_response.json -w "%{http_code}" \
+            -H "$AUTH" "$COURSE_HUB_URL/api/content/lecture/$SESSION")
+          if [ "$HTTP" = "200" ]; then
+            python3 - <<'PY'
+          import json
+          data = json.load(open("/tmp/session_response.json"))
+          open("/tmp/template_code.txt", "w").write(data.get("template_code") or "")
+          open("/tmp/review_addendum.txt", "w").write(data.get("review_addendum") or "")
+          PY
+            echo "Loaded session content for session $SESSION"
           else
+            echo "No session content for session $SESSION — proceeding without template/addendum"
             echo "" > /tmp/template_code.txt
-            echo "No template found for session $SESSION"
+            echo "" > /tmp/review_addendum.txt
+          fi
+
+          # Append review addendum to system prompt if present
+          if [ -s /tmp/review_addendum.txt ]; then
+            echo "" >> /tmp/system_prompt.md
+            echo "---" >> /tmp/system_prompt.md
+            echo "" >> /tmp/system_prompt.md
+            echo "## Additional criteria for this session" >> /tmp/system_prompt.md
+            echo "" >> /tmp/system_prompt.md
+            cat /tmp/review_addendum.txt >> /tmp/system_prompt.md
+            echo "Appended session review addendum"
           fi
 
       # ── marimo check ──────────────────────────────────────────────
@@ -96,7 +113,6 @@ jobs:
           for f in $(find "$SESSION_DIR" -name "*.py" -type f | sort); do
             echo "Checking $f ..."
             OUTPUT=$(marimo check "$f" 2>&1) || HAS_ISSUES=true
-            # Also detect warnings/issues in the output text
             if echo "$OUTPUT" | grep -qiE "warning|error|Found [1-9]"; then
               HAS_ISSUES=true
             fi
@@ -108,7 +124,6 @@ jobs:
           "
           done
 
-          # Write marimo check results
           {
             echo "## 🔍 marimo check"
             echo ""
@@ -129,38 +144,10 @@ jobs:
             --body-file /tmp/marimo_check.md
 
       # ── LLM feedback ──────────────────────────────────────────────
-      - name: Load system prompt
-        id: prompt
-        run: |
-          SESSION="${{ steps.parse.outputs.session }}"
-
-          # Always start with the default prompt
-          if [ -f ".internal/prompts/default.md" ]; then
-            cp ".internal/prompts/default.md" /tmp/system_prompt.md
-            echo "Loaded default prompt"
-          else
-            echo "::error::No default.md found in internal repo"
-            exit 1
-          fi
-
-          # Append session-specific prompt if it exists
-          if [ -f ".internal/prompts/session_${SESSION}.md" ]; then
-            echo "" >> /tmp/system_prompt.md
-            echo "---" >> /tmp/system_prompt.md
-            echo "" >> /tmp/system_prompt.md
-            echo "## Additional criteria for this assignment" >> /tmp/system_prompt.md
-            echo "" >> /tmp/system_prompt.md
-            cat ".internal/prompts/session_${SESSION}.md" >> /tmp/system_prompt.md
-            echo "Appended session-specific prompt for session $SESSION"
-          else
-            echo "No session-specific prompt for session $SESSION, using default only"
-          fi
-
       - name: Fetch previous review comments
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch all comments on this issue, filter to LLM reviews only
           gh api \
             "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
             --paginate \
@@ -180,39 +167,31 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python << 'PYTHON_SCRIPT'
+          python3 << 'PYTHON_SCRIPT'
           import os
           from google import genai
 
-          # --- Init Gemini client (Vertex AI mode with API key) ---
           api_key = os.environ["GEMINI_API_KEY"]
           client = genai.Client(vertexai=True, api_key=api_key)
 
-          # --- Read inputs ---
-          with open("/tmp/student_code.txt", "r") as f:
+          with open("/tmp/student_code.txt") as f:
               student_code = f.read()
-
-          with open("/tmp/system_prompt.md", "r") as f:
+          with open("/tmp/system_prompt.md") as f:
               system_prompt = f.read()
-
-          with open("/tmp/previous_reviews.txt", "r") as f:
+          with open("/tmp/previous_reviews.txt") as f:
               previous_reviews = f.read().strip()
-
-          with open("/tmp/template_code.txt", "r") as f:
+          with open("/tmp/template_code.txt") as f:
               template_code = f.read().strip()
 
           issue_body = os.environ.get("ISSUE_BODY", "No assignment description available.")
 
-          # --- Build user prompt ---
-          user_prompt = f"""Here is the assignment description:
-
-          {issue_body}"""
+          user_prompt = f"Here is the assignment description:\n\n{issue_body}"
 
           if template_code:
               user_prompt += f"""
 
-          Here is the starter template I provided to the students. This is 
-          MY code, not theirs. Do NOT review or comment on this code. Only 
+          Here is the starter template I provided to the students. This is
+          MY code, not theirs. Do NOT review or comment on this code. Only
           review code the students wrote or modified beyond this template:
 
           {template_code}"""
@@ -231,16 +210,12 @@ jobs:
           {previous_reviews}
 
           The students have reworked their code based on your feedback.
-          Please review the updated code. Acknowledge improvements you 
+          Please review the updated code. Acknowledge improvements you
           suggested that were implemented. Focus new comments on remaining
-          issues or new problems. Do not repeat feedback that has been 
-          addressed."""
+          issues or new problems. Do not repeat feedback that has been addressed."""
           else:
-              user_prompt += """
+              user_prompt += "\n\nPlease review this code."
 
-          Please review this code."""
-
-          # --- Call Gemini ---
           response = client.models.generate_content(
               model="gemini-2.5-flash",
               contents=user_prompt,
@@ -252,11 +227,8 @@ jobs:
           )
 
           feedback_text = response.text
-
-          # --- Determine review round ---
           review_round = previous_reviews.count("## 🤖 LLM Code Review") + 1
 
-          # Write feedback to file
           with open("/tmp/feedback.md", "w") as f:
               if review_round > 1:
                   f.write(f"## 🤖 LLM Code Review (Round {review_round})\n\n")
@@ -274,3 +246,17 @@ jobs:
         run: |
           gh issue comment ${{ github.event.issue.number }} \
             --body-file /tmp/feedback.md
+
+      # ── Quiz generation ───────────────────────────────────────────
+      - name: Generate and upload personalized quiz
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COURSE_HUB_URL: ${{ secrets.COURSE_HUB_URL }}
+          COURSE_HUB_API_TOKEN: ${{ secrets.COURSE_HUB_API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/generate_quiz.py \
+            --repo-owner "${{ github.repository_owner }}" \
+            --repo-name  "${{ github.event.repository.name }}" \
+            --issue-number "${{ github.event.issue.number }}" \
+            --session-number "${{ steps.parse.outputs.session }}"

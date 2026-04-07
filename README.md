@@ -8,22 +8,22 @@ Welcome to the NLP Class of 2026. A general overview of the repository:
 
 ## Schedule
 
-| **#** | **Date** | **Weekday** | **CW** | **Room** | **Topic** | **Contents** |
-|-------|----------|-------------|--------|----------|-----------|--------------|
-| 1 | 16.04. | Thursday | 16 | 149 | Introduction: The World of NLP | What is NLP? Typical NLP tasks.  |
-| 2 | 23.04. | Thursday | 17 | 149 | Text Processing Fundamentals | Regex, tokenization (rule-based, subword), text normalization, stemming & lemmatization, stop words |
-| 3 | 30.04. | Thursday | 18 | 149 | Linguistic Annotations & Pattern Matching | POS tagging, dependency parsing, NER, spaCy Matcher, PhraseMatcher, EntityRuler |
-| 4 | **05.05.** |  **Tuesday** | 19 | **154** | ⚠️ **Substitute date for 14.05.**  Text Vectorization: From Text to Numbers | Bag-of-Words, document-term matrices, TF-IDF, cosine similarity, TfidfVectorizer |
-| 5 | 07.05. | Thursday | 19 |149 | Text Classification | Naive Bayes, Logistic Regression, evaluation (precision, recall, F1), cross-validation, imbalanced data |
-| 6 | 28.05. | Thursday | 22 | 149 | Language Models, Word Vectors + **🎤 Guest Lecture Ines Montani** | **1st half (90 min):** From sparse to dense: why BoW/TF-IDF isn't enough. What is a language model? Word2Vec & GloVe  **2nd half (90 min): 🎤 Guest Lecture Ines Montani** |
-| - | 01.06 | Monday | 23 | 390 | **📝 Master DS Exams (afternoon)**  | |
-| 7 | **02.06.** | **Tuesday** | 23 | **154** | BERT: Pre-Training & Fine-Tuning | ⚠️ **Substitute date for 04.06.** From static to contextualized embeddings. What is pre-training? Masked language modeling. BERT for text classification. Fine-tuning with Hugging Face |
-| 8 | 11.06. | Thursday | 24 | 149 | The BERT Ecosystem | SentenceBERT & sentence embeddings, BERTopic for topic modeling, semantic search. When to fine-tune vs. use off-the-shelf |
-| 9 | 18.06. | Thursday | 25 | 149 | Introduction to LLMs | What are LLMs? Evolution. Capabilities, API access, basic prompting, few-shot learning |
-| 10 | 25.06. | Thursday | 26 | 149 | Working with LLMs | Chain-of-thought, spaCy-LLM integration, LLMs for NLP tasks (classification, NER, summarization). When to use what: classical vs. BERT vs. LLM decision framework |
-| 11 | 02.07. | Thursday | 27 | 149 | Ethics, Limitations & Exam Preparation | Hallucination, bias, ethics in NLP|
-| 12 | 09.07. | Thursday | 28 | 149 | **📝 Exams (afternoon)** | **Oral group exams** |
-| — | 10.07. | Friday | 28 | 149 | **📝 Exams (afternoon)** | **Oral group exams** |
+| **#** | **Date** | **CW** | **Weekday** | **Time** | **Room** | **Topic** | **Contents** |
+|-------|----------|--------|-------------|----------|----------|-----------|--------------|
+| 1 | 16.04. | 16 | Thursday | 15:15–18:30 | 149 | Introduction: The World of NLP | What is NLP? Typical NLP tasks.  |
+| 2 | 23.04. | 17 | Thursday | 15:15–18:30 | 149 | Text Processing Fundamentals | Regex, tokenization (rule-based, subword), text normalization, stemming & lemmatization, stop words |
+| 3 | 30.04. | 18 | Thursday | 15:15–18:30 | 149 | Linguistic Annotations & Pattern Matching | POS tagging, dependency parsing, NER, spaCy Matcher, PhraseMatcher, EntityRuler |
+| 4 | **05.05.** | 19 | **Tuesday** | 15:15–18:30 | **154** | ⚠️ **Substitute date for 14.05.**  Text Vectorization: From Text to Numbers | Bag-of-Words, document-term matrices, TF-IDF, cosine similarity, TfidfVectorizer |
+| 5 | 07.05. | 19 | Thursday | 15:15–18:30 | 149 | Text Classification | Naive Bayes, Logistic Regression, evaluation (precision, recall, F1), cross-validation, imbalanced data |
+| 6 | 28.05. | 22 | Thursday | 15:15–18:30 | 149 | Language Models, Word Vectors + **🎤 Guest Lecture Ines Montani** | **1st half (90 min):** From sparse to dense: why BoW/TF-IDF isn't enough. What is a language model? Word2Vec & GloVe  **2nd half (90 min): 🎤 Guest Lecture Ines Montani** |
+| - | 01.06. | 23 | Monday | | 390 | **📝 Master DS Exams (afternoon)** | |
+| 7 | **02.06.** | 23 | **Tuesday** | 15:15–18:30 | **154** | ⚠️ **Substitute date for 04.06.** BERT: Pre-Training & Fine-Tuning | From static to contextualized embeddings. What is pre-training? Masked language modeling. BERT for text classification. Fine-tuning with Hugging Face |
+| 8 | 11.06. | 24 | Thursday | 15:15–18:30 | 149 | The BERT Ecosystem | SentenceBERT & sentence embeddings, BERTopic for topic modeling, semantic search. When to fine-tune vs. use off-the-shelf |
+| 9 | 18.06. | 25 | Thursday | 15:15–18:30 | 149 | Introduction to LLMs | What are LLMs? Evolution. Capabilities, API access, basic prompting, few-shot learning |
+| 10 | 25.06. | 26 | Thursday | 15:15–18:30 | 149 | Working with LLMs | Chain-of-thought, spaCy-LLM integration, LLMs for NLP tasks (classification, NER, summarization). When to use what: classical vs. BERT vs. LLM decision framework |
+| 11 | 02.07. | 27 | Thursday | 15:15–18:30 | 149 | Ethics, Limitations & Exam Preparation | Hallucination, bias, ethics in NLP |
+| - | 09.07. | 28 | Thursday | | 149 | **📝 Exams (afternoon)** | **Oral group exams** |
+| - | 10.07. | 28 | Friday | | 149 | **📝 Exams (afternoon)** | **Oral group exams** |
 
 ## Initial Set-Up
 
@@ -66,7 +66,7 @@ uv sync
 
 - Submit your work on the main branch in the respective assignemnt folder
 - Set a new upstream to fetch updates on our main repo
-    - `git remote add upstream https://github.com/th-koeln-iws-nlp/nlp-ss2026-template.git` 
+    - `git remote add upstream https://github.com/th-koeln-iws-nlp/nlp-ss2026.git` 
     - `git pull upstream main`
 - One assignment per week as issue
 - Once you close the issue (or I close it for you) a code review agent will give you feedback on your code
