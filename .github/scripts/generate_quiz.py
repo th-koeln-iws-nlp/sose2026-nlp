@@ -170,7 +170,20 @@ def main(repo_owner: str, repo_name: str, issue_number: int, session_number: int
         resp.raise_for_status()
         print(f"Uploaded {len(questions)} questions for {member}")
 
-    # 5. Post issue comment with direct quiz links
+    # 5. Update assignment status to "submitted" for each team member
+    assignment_id = f"{session_number:02d}"
+    for member in team_members:
+        resp = requests.post(
+            f"{COURSE_HUB_URL}/api/assignment-status",
+            json={"username": member, "assignment_id": assignment_id, "status": "submitted"},
+            headers=_hub_headers,
+        )
+        if resp.status_code == 200:
+            print(f"Assignment {assignment_id} marked submitted for {member}")
+        else:
+            print(f"WARNING: could not update assignment status for {member}: {resp.status_code}")
+
+    # 6. Post issue comment with direct quiz links
     quiz_url = f"{COURSE_HUB_URL}/Quiz?session={session_number}"
     link_lines = [f"- **{m}**: [Open Session {session_number} quiz]({quiz_url})" for m in team_members]
 
