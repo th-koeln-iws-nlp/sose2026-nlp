@@ -21,3 +21,6 @@ scripts/
 .spotify_cache
 *.excalidraw
 notebooks/internal/
+
+all_songs_*.csv
+spotify_500k/
