@@ -4,6 +4,8 @@ Answer these questions in the [01_assignment.py](./assignments/01_assignment/01_
 
 To count words in this assignment, use the string `split()` method in Python. Next week we gonna look at a more precise way using spaCy.
 
+---
+
 1. What is the average length (number of words) of song lyrics per genre? Visualize this as a bar chart.
 
 2. Plot a timeline for the average lyrics length (number of words) for each year.
