@@ -22,8 +22,8 @@ Welcome to the NLP Class of 2026. A general overview of the repository:
 | 9 | 18.06. | 25 | Thursday | 15:15–18:30 | 149 | Introduction to LLMs | What are LLMs? Evolution. Capabilities, API access, basic prompting, few-shot learning | |
 | 10 | 25.06. | 26 | Thursday | 15:15–18:30 | 149 | Working with LLMs | Chain-of-thought, spaCy-LLM integration, LLMs for NLP tasks (classification, NER, summarization). When to use what: classical vs. BERT vs. LLM decision framework | |
 | 11 | 02.07. | 27 | Thursday | 15:15–18:30 | 149 | Ethics, Limitations & Exam Preparation | Hallucination, bias, ethics in NLP | |
-| - | 09.07. | 28 | Thursday | | 149 | **📝 Exams (afternoon)** | **Oral group exams** | |
-| - | 10.07. | 28 | Friday | | 149 | **📝 Exams (afternoon)** | **Oral group exams** | |
+| - | 09.07. | 28 | Thursday | | 400 | **📝 Exams (afternoon)** | **Oral group exams** | |
+| - | 10.07. | 28 | Friday | | 400 | **📝 Exams (afternoon)** | **Oral group exams** | |
 
 ## Initial Set-Up
 
