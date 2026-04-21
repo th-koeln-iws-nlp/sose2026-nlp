@@ -12,7 +12,7 @@ Welcome to the NLP Class of 2026. A general overview of the repository:
 |-------|----------|--------|-------------|----------|----------|-----------|--------------|-----------|
 | 1 | 16.04. | 16 | Thursday | 15:15–18:30 | 149 | Introduction: The World of NLP | What is NLP? Typical NLP tasks.  | [PDF](./slides/01_kick_off.pdf) |
 | 2 | 23.04. | 17 | Thursday | 15:15–18:30 | 149 | Text Processing Fundamentals | Regex, tokenization (rule-based, subword), text normalization, stemming & lemmatization, stop words | [PDF](./slides/02_text_processing.pdf) |
-| 3 | 30.04. | 18 | Thursday | 15:15–18:30 | 149 | Linguistic Annotations & Pattern Matching | POS tagging, dependency parsing, NER, spaCy Matcher, PhraseMatcher, EntityRuler | |
+| 3 | 30.04. | 18 | Thursday | 15:15–18:30 | 149 | Linguistic Annotations & Pattern Matching | POS tagging, dependency parsing, NER, spaCy Matcher, PhraseMatcher, EntityRuler | [PDF](./slides/03_pattern_matching.pdf) |
 | 4 | **05.05.** | 19 | **Tuesday** | 15:15–18:30 | **154** | ⚠️ **Substitute date for 14.05.**  Text Vectorization: From Text to Numbers | Bag-of-Words, document-term matrices, TF-IDF, cosine similarity, TfidfVectorizer | |
 | 5 | 07.05. | 19 | Thursday | 15:15–18:30 | 149 | Text Classification | Naive Bayes, Logistic Regression, evaluation (precision, recall, F1), cross-validation, imbalanced data | |
 | 6 | 28.05. | 22 | Thursday | 15:15–18:30 | 149 | Language Models, Word Vectors + **🎤 Guest Lecture Ines Montani** | **1st half (90 min):** From sparse to dense: why BoW/TF-IDF isn't enough. What is a language model? Word2Vec & GloVe  **2nd half (90 min): 🎤 Guest Lecture Ines Montani** | |

@@ -24,3 +24,8 @@ notebooks/internal/
 
 all_songs_*.csv
 spotify_500k/
+slides/markdowns/
+ressources/
+claude_dump/
+accounts.csv
+DIS22a*
