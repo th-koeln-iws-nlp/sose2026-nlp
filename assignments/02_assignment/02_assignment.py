@@ -15,9 +15,9 @@ def _():
 
 
 @app.cell
-def _(nlp):
+def _(nlp, text):
     def preprocess(
-        text: str,
+        texts: list[str],
         lowercase: bool = True,
         remove_stopwords: bool = True,
         remove_punct: bool = True,
@@ -26,21 +26,23 @@ def _(nlp):
         if lowercase:
             text = text.lower()
 
-        doc = nlp(text)
+        docs = nlp.pipe(text, batch_size=256)
+        all_docs = []
+        for doc in all_docs:
+            tokens = []
+            for token in doc:
+                if remove_punct and token.is_punct:
+                    continue
+                if remove_stopwords and token.is_stop:
+                    continue
 
-        tokens = []
-        for token in doc:
-            if remove_punct and token.is_punct:
-                continue
-            if remove_stopwords and token.is_stop:
-                continue
+                if lemmatize:
+                    tokens.append(token.lemma_)
+                else:
+                    tokens.append(token.text)
+            all_docs.append(tokens)
 
-            if lemmatize:
-                tokens.append(token.lemma_)
-            else:
-                tokens.append(token.text)
-
-        return tokens
+        return all_docs
 
     return
 
@@ -72,6 +74,14 @@ def _(pd):
 @app.cell
 def _(lyrics_df, mo):
     mo.ui.table(lyrics_df)
+    return
+
+
+@app.cell
+def _(lyrics_df, nlp):
+    docs = nlp.pipe(lyrics_df["lyrics"][:500].to_list(), batch_size=256)
+    for doc in list(docs):
+        print([token.text for token in doc])
     return
 
 
