@@ -110,7 +110,7 @@ def read_file(path: str, default: str = "") -> str:
 def generate_quiz_json(system_prompt: str, user_message: str) -> str:
     """Generate quiz JSON via Gemini, falling back to OpenWebUI on 503."""
     try:
-        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        client = genai.Client(vertexai=True, api_key=os.environ["GEMINI_API_KEY"])
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=user_message,
