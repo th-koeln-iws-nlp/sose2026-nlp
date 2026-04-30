@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install google-genai marimo requests
+        run: pip install google-genai marimo requests openai
 
       - name: Extract assignment number from issue title
         id: parse
@@ -254,6 +254,7 @@ jobs:
           COURSE_HUB_URL: ${{ secrets.COURSE_HUB_URL }}
           COURSE_HUB_API_TOKEN: ${{ secrets.COURSE_HUB_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPEN_WEB_UI_API_KEY: ${{ secrets.OPEN_WEB_UI_API_KEY }}
         run: |
           python3 .github/scripts/generate_quiz.py \
             --repo-owner "${{ github.repository_owner }}" \

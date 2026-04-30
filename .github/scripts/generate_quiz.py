@@ -9,6 +9,8 @@ Inputs (env vars):
   COURSE_HUB_URL       — Base URL of the deployed Course Hub (no trailing slash)
   COURSE_HUB_API_TOKEN — Bearer token for the Course Hub API
   GITHUB_TOKEN         — Auto-provided by Actions (for collaborators API + issue comments)
+  OPEN_WEB_UI_API_KEY  — API key for the OpenWebUI fallback (used when Gemini returns 503)
+  OWUI_FALLBACK_MODEL  — OpenWebUI model ID to use as fallback (default: qwen3:6b)
 
 Inputs (files written by earlier steps):
   /tmp/student_code.txt  — concatenated student .py files
@@ -27,6 +29,11 @@ import sys
 
 import requests
 from google import genai
+from google.genai import errors as genai_errors
+from openai import OpenAI
+
+OWUI_BASE_URL = "https://iwschat.service.kitegg.hs-mainz.de/api/"
+OWUI_FALLBACK_MODEL = os.environ.get("OWUI_FALLBACK_MODEL", "Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf")
 
 ADMIN_GITHUB_USERNAMES = {"richardsiegth", "RichardSiegTH"}
 COURSE_HUB_URL = os.environ["COURSE_HUB_URL"].rstrip("/")
@@ -97,6 +104,45 @@ def read_file(path: str, default: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
+# LLM generation with Gemini → OpenWebUI fallback
+# ---------------------------------------------------------------------------
+
+def generate_quiz_json(system_prompt: str, user_message: str) -> str:
+    """Generate quiz JSON via Gemini, falling back to OpenWebUI on 503."""
+    try:
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_message,
+            config=genai.types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.4,
+                response_mime_type="application/json",
+            ),
+        )
+        return (response.text or "").strip()
+    except genai_errors.ServerError as e:
+        if e.code != 503:
+            raise
+        print(f"Gemini returned 503 ({e}), falling back to OpenWebUI ({OWUI_FALLBACK_MODEL})")
+
+    owui_api_key = os.environ.get("OPEN_WEB_UI_API_KEY", "")
+    if not owui_api_key:
+        raise RuntimeError("Gemini unavailable and OPEN_WEB_UI_API_KEY is not set")
+
+    owui_client = OpenAI(base_url=OWUI_BASE_URL, api_key=owui_api_key)
+    resp = owui_client.chat.completions.create(
+        model=OWUI_FALLBACK_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt + "\n\nRespond with valid JSON only, no markdown fences."},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.4,
+    )
+    return (resp.choices[0].message.content or "").strip()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -128,19 +174,8 @@ def main(repo_owner: str, repo_name: str, issue_number: int, session_number: int
 {llm_review[:3000]}
 """
 
-    # 3. Generate questions with Gemini (once for the whole team)
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=user_message,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=quiz_system_prompt,
-            temperature=0.4,
-            response_mime_type="application/json",
-        ),
-    )
-
-    raw = response.text.strip()
+    # 3. Generate questions (Gemini with OpenWebUI fallback on 503)
+    raw = generate_quiz_json(quiz_system_prompt, user_message)
     # Strip markdown fences if model ignores the instruction
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
