@@ -13,7 +13,7 @@ def _():
     from collections import Counter
     from pathlib import Path
 
-    nlp = spacy.load("en_core_web_sm")
+    nlp = spacy.load("en_core_web_lg")
     df = (
         pd.read_csv(Path("data/billboard_top100/billboard_top_100.csv"))
         .dropna(subset=["lyrics"])
@@ -72,7 +72,9 @@ def _(mo):
 
 @app.cell
 def _(df, mo):
-    _options = {f"{row['artist']} - {row['song_title']}": i for i, row in df.iterrows()}
+    _options = {
+        f"{row['artist']} - {row['song_title']}": i for i, row in df.iterrows()
+    }
     song_picker = mo.ui.dropdown(
         options=_options,
         value=list(_options.keys())[0],
@@ -374,6 +376,17 @@ def _(mo):
 def _(doc, mo, spacy):
     _html = spacy.displacy.render(doc, style="ent", page=False, jupyter=False)
     mo.Html(f'<div style="line-height:2.2;padding:0.5rem">{_html}</div>')
+    return
+
+
+@app.cell
+def _(spacy):
+    spacy.explain("NORP")
+    return
+
+
+@app.cell
+def _():
     return
 
 
