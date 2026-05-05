@@ -259,6 +259,13 @@ def _(LogisticRegression, X_train_scaled, y_train):
 
 
 @app.cell
+def _(X_train_scaled, classification_report, grid, y_train):
+    y_pred_train = grid.predict(X_train_scaled)
+    print(classification_report(y_train, y_pred_train))
+    return
+
+
+@app.cell
 def _(X_test_scaled, classification_report, grid, y_test):
     y_pred_grid = grid.predict(X_test_scaled)
     print(classification_report(y_test, y_pred_grid))

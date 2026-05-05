@@ -67,11 +67,13 @@ def _(mo):
 
 @app.cell
 def _(CountVectorizer, lyrics_df):
-    cv_corpus = CountVectorizer(min_df=2)
+    cv_corpus = CountVectorizer(min_df=3)
     X_corpus = cv_corpus.fit_transform(lyrics_df["lyrics"])
     n_cells = X_corpus.shape[0] * X_corpus.shape[1]
     sparsity = (1 - X_corpus.nnz / n_cells) * 100
-    print(f"Shape:            {X_corpus.shape[0]:,} songs x {X_corpus.shape[1]:,} terms")
+    print(
+        f"Shape:            {X_corpus.shape[0]:,} songs x {X_corpus.shape[1]:,} terms"
+    )
     print(f"Non-zero entries: {X_corpus.nnz:,} out of {n_cells:,} total")
     print(f"Sparsity:         {sparsity:.1f}% of entries are zero")
     return X_corpus, cv_corpus
@@ -94,9 +96,13 @@ def _(mo):
 @app.cell
 def _(X_corpus, cv_corpus, pd, px):
     term_sums = X_corpus.sum(axis=0).A1
-    freq_df = pd.DataFrame(
-        {"term": cv_corpus.get_feature_names_out(), "count": term_sums}
-    ).sort_values("count", ascending=False).head(30)
+    freq_df = (
+        pd.DataFrame(
+            {"term": cv_corpus.get_feature_names_out(), "count": term_sums}
+        )
+        .sort_values("count", ascending=False)
+        .head(30)
+    )
 
     fig_freq = px.bar(
         freq_df,
@@ -131,9 +137,13 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    max_features_slider = mo.ui.slider(500, 10000, step=500, value=3000, label="max_features")
+    max_features_slider = mo.ui.slider(
+        500, 10000, step=500, value=3000, label="max_features"
+    )
     min_df_slider = mo.ui.slider(1, 20, step=1, value=3, label="min_df")
-    stop_words_toggle = mo.ui.checkbox(value=True, label="Remove English stop words")
+    stop_words_toggle = mo.ui.checkbox(
+        value=True, label="Remove English stop words"
+    )
     mo.vstack([max_features_slider, min_df_slider, stop_words_toggle])
     return max_features_slider, min_df_slider, stop_words_toggle
 
@@ -156,9 +166,16 @@ def _(
     X_interactive = cv_interactive.fit_transform(lyrics_df["lyrics"])
     interactive_sums = X_interactive.sum(axis=0).A1
 
-    interactive_freq_df = pd.DataFrame(
-        {"term": cv_interactive.get_feature_names_out(), "count": interactive_sums}
-    ).sort_values("count", ascending=False).head(30)
+    interactive_freq_df = (
+        pd.DataFrame(
+            {
+                "term": cv_interactive.get_feature_names_out(),
+                "count": interactive_sums,
+            }
+        )
+        .sort_values("count", ascending=False)
+        .head(30)
+    )
 
     sw_label = "english" if stop_words_toggle.value else "None"
     fig_interactive = px.bar(
@@ -193,9 +210,13 @@ def _(CountVectorizer, lyrics_df, pd, px):
     ]
     ngram_results = []
     for label, ngram_range in ngram_configs:
-        cv_ngram = CountVectorizer(ngram_range=ngram_range, min_df=2, stop_words="english")
+        cv_ngram = CountVectorizer(
+            ngram_range=ngram_range, min_df=2, stop_words="english"
+        )
         cv_ngram.fit(lyrics_df["lyrics"])
-        ngram_results.append({"n-gram setting": label, "vocabulary size": len(cv_ngram.vocabulary_)})
+        ngram_results.append(
+            {"n-gram setting": label, "vocabulary size": len(cv_ngram.vocabulary_)}
+        )
 
     ngram_df = pd.DataFrame(ngram_results)
     print(ngram_df.to_string(index=False))
@@ -205,7 +226,10 @@ def _(CountVectorizer, lyrics_df, pd, px):
         x="n-gram setting",
         y="vocabulary size",
         title="Vocabulary Size by N-gram Setting (min_df=2, stop_words='english')",
-        labels={"n-gram setting": "N-gram Range", "vocabulary size": "Vocabulary Size"},
+        labels={
+            "n-gram setting": "N-gram Range",
+            "vocabulary size": "Vocabulary Size",
+        },
         text="vocabulary size",
     )
     fig_ngram.update_traces(textposition="outside")
@@ -241,7 +265,9 @@ def _(mo):
 
 @app.cell
 def _(TfidfVectorizer, lyrics_df):
-    tfidf_vectorizer = TfidfVectorizer(max_features=10000, min_df=2, stop_words="english")
+    tfidf_vectorizer = TfidfVectorizer(
+        max_features=10000, min_df=2, stop_words="english"
+    )
     X_tfidf = tfidf_vectorizer.fit_transform(lyrics_df["lyrics"])
     print(f"TF-IDF matrix shape: {X_tfidf.shape}")
     return X_tfidf, tfidf_vectorizer
@@ -268,7 +294,9 @@ def _(mo):
 def _(lyrics_df, mo):
     song_options = [
         f"{artist} - {title} ({int(year)})"
-        for artist, title, year in zip(lyrics_df["artist"], lyrics_df["song_title"], lyrics_df["year"])
+        for artist, title, year in zip(
+            lyrics_df["artist"], lyrics_df["song_title"], lyrics_df["year"]
+        )
     ]
     song_dropdown = mo.ui.dropdown(
         options=song_options,
@@ -289,9 +317,13 @@ def _(lyrics_df, song_dropdown, song_options):
 @app.cell
 def _(X_tfidf, pd, px, selected_idx, selected_song, tfidf_vectorizer):
     tfidf_row = X_tfidf[selected_idx].toarray().flatten()
-    top_tfidf_df = pd.DataFrame(
-        {"term": tfidf_vectorizer.get_feature_names_out(), "tfidf": tfidf_row}
-    ).sort_values("tfidf", ascending=False).head(20)
+    top_tfidf_df = (
+        pd.DataFrame(
+            {"term": tfidf_vectorizer.get_feature_names_out(), "tfidf": tfidf_row}
+        )
+        .sort_values("tfidf", ascending=False)
+        .head(20)
+    )
 
     fig_tfidf_song = px.bar(
         top_tfidf_df,
@@ -334,17 +366,26 @@ def _(
     top20_terms = tfidf_vectorizer.get_feature_names_out()[top20_idx]
     top20_tfidf_scores = tfidf_vec[top20_idx]
 
-    bow_vocab_lookup = {t: i for i, t in enumerate(cv_lyrics.get_feature_names_out())}
+    bow_vocab_lookup = {
+        t: i for i, t in enumerate(cv_lyrics.get_feature_names_out())
+    }
     top20_bow = np.array(
-        [bow_vec[bow_vocab_lookup[t]] if t in bow_vocab_lookup else 0.0 for t in top20_terms],
+        [
+            bow_vec[bow_vocab_lookup[t]] if t in bow_vocab_lookup else 0.0
+            for t in top20_terms
+        ],
         dtype=float,
     )
     bow_max = top20_bow.max()
     top20_bow_norm = top20_bow / bow_max if bow_max > 0 else top20_bow
 
     fig_compare = go.Figure()
-    fig_compare.add_trace(go.Bar(name="BoW (normalized)", x=top20_terms, y=top20_bow_norm))
-    fig_compare.add_trace(go.Bar(name="TF-IDF", x=top20_terms, y=top20_tfidf_scores))
+    fig_compare.add_trace(
+        go.Bar(name="BoW (normalized)", x=top20_terms, y=top20_bow_norm)
+    )
+    fig_compare.add_trace(
+        go.Bar(name="TF-IDF", x=top20_terms, y=top20_tfidf_scores)
+    )
     fig_compare.update_layout(
         barmode="group",
         title=f"BoW vs. TF-IDF: {selected_song['artist']} - {selected_song['song_title']}",
@@ -391,7 +432,13 @@ def _(px, umap_df):
         x="x",
         y="y",
         color="genre_label",
-        hover_data={"artist": True, "song_title": True, "year": True, "x": False, "y": False},
+        hover_data={
+            "artist": True,
+            "song_title": True,
+            "year": True,
+            "x": False,
+            "y": False,
+        },
         title="PyMDE Projection of TF-IDF Vectors, Colored by Genre",
         labels={"genre_label": "Genre", "x": "PyMDE 1", "y": "PyMDE 2"},
         opacity=0.7,
@@ -437,7 +484,9 @@ def _(
         query_vec = tfidf_vectorizer.transform([query_input.value])
         sim_scores = cosine_similarity(query_vec, X_tfidf).flatten()
         top_sim_idx = sim_scores.argsort()[::-1][:10]
-        result_df = lyrics_df.iloc[top_sim_idx][["artist", "song_title", "year", "genre", "lyrics"]].copy()
+        result_df = lyrics_df.iloc[top_sim_idx][
+            ["artist", "song_title", "year", "genre", "lyrics"]
+        ].copy()
         result_df["similarity"] = sim_scores[top_sim_idx].round(3)
         result_df = result_df.reset_index(drop=True)
         search_output = result_df
@@ -452,33 +501,45 @@ def _(
 @app.cell
 def _(go, mo, sim_scores, top_sim_idx, umap_df):
     if top_sim_idx is None:
-        umap_search_out = mo.md("*Results will appear on the map once you enter a query.*")
+        umap_search_out = mo.md(
+            "*Results will appear on the map once you enter a query.*"
+        )
     else:
         highlight = umap_df.iloc[top_sim_idx].copy()
         highlight["similarity"] = sim_scores[top_sim_idx].round(3)
 
         fig_umap_sim = go.Figure()
-        fig_umap_sim.add_trace(go.Scatter(
-            x=umap_df["x"],
-            y=umap_df["y"],
-            mode="markers",
-            marker={"color": "lightgrey", "size": 3, "opacity": 0.4},
-            hoverinfo="skip",
-            showlegend=False,
-        ))
-        fig_umap_sim.add_trace(go.Scatter(
-            x=highlight["x"],
-            y=highlight["y"],
-            mode="markers",
-            marker={"color": "crimson", "size": 11, "opacity": 0.9,
-                    "line": {"width": 1, "color": "white"}},
-            text=highlight.apply(
-                lambda r: f"{r['artist']} - {r['song_title']} ({int(r['year'])})<br>similarity: {r['similarity']}",
-                axis=1,
-            ),
-            hovertemplate="%{text}<extra></extra>",
-            name="Top 10 matches",
-        ))
+        fig_umap_sim.add_trace(
+            go.Scatter(
+                x=umap_df["x"],
+                y=umap_df["y"],
+                mode="markers",
+                marker={"color": "lightgrey", "size": 3, "opacity": 0.4},
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+        fig_umap_sim.add_trace(
+            go.Scatter(
+                x=highlight["x"],
+                y=highlight["y"],
+                mode="markers",
+                marker={
+                    "color": "crimson",
+                    "size": 11,
+                    "opacity": 0.9,
+                    "line": {"width": 1, "color": "white"},
+                },
+                text=highlight.apply(
+                    lambda r: (
+                        f"{r['artist']} - {r['song_title']} ({int(r['year'])})<br>similarity: {r['similarity']}"
+                    ),
+                    axis=1,
+                ),
+                hovertemplate="%{text}<extra></extra>",
+                name="Top 10 matches",
+            )
+        )
         fig_umap_sim.update_layout(
             title="Similar Songs in TF-IDF Space",
             xaxis_title="PyMDE 1",
