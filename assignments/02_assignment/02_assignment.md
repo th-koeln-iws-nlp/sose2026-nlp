@@ -2,7 +2,7 @@
 
 Answer these questions in the [02_assignment.py](./assignments/02_assignment/02_assignment.py) marimo notebook.
 
-Use the `preprocess()` function from the [normalization notebook](./notebooks/normalization.py) to tokenize, clean, and lemmatize lyrics.
+Use the `preprocess()` function from the [normalization notebook](./notebooks/02_normalization.py) to tokenize, clean, and lemmatize lyrics.
 
 ---
 

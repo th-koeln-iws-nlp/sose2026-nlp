@@ -52,7 +52,7 @@ def _(mo):
     mo.md(r"""
     ## Assignment 02
 
-    Use the `preprocess()` function from the [normalization notebook](../../notebooks/normalization.py) to tokenize, clean, and lemmatize lyrics.
+    Use the `preprocess()` function from the [normalization notebook](../../notebooks/02_normalization.py) to tokenize, clean, and lemmatize lyrics.
 
     ---
 

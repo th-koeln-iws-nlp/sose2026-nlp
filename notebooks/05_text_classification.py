@@ -241,7 +241,9 @@ def _(
         :, list(logreg_exp.classes_).index("Explicit")
     ]
 
-    pr_precision, pr_recall, pr_thresholds = precision_recall_curve(y_true_bin, prob_exp_pr)
+    pr_precision, pr_recall, pr_thresholds = precision_recall_curve(
+        y_true_bin, prob_exp_pr
+    )
     # precision_recall_curve returns len(thresholds) == len(precision) - 1
     pr_thresholds_padded = np.append(pr_thresholds, np.nan)
     ap = average_precision_score(y_true_bin, prob_exp_pr)
@@ -253,28 +255,37 @@ def _(
     baseline = y_true_bin.mean()
 
     fig_pr = go.Figure()
-    fig_pr.add_trace(go.Scatter(
-        x=[0, 1], y=[baseline, baseline],
-        mode="lines",
-        name=f"Random baseline ({baseline:.2f})",
-        line={"color": "grey", "width": 1, "dash": "dash"},
-    ))
-    fig_pr.add_trace(go.Scatter(
-        x=pr_recall, y=pr_precision,
-        mode="lines",
-        name="LogReg",
-        line={"color": "steelblue", "width": 2},
-        fill="tozeroy",
-        fillcolor="rgba(70, 130, 180, 0.12)",
-        customdata=pr_thresholds_padded,
-        hovertemplate="Recall: %{x:.3f}<br>Precision: %{y:.3f}<br>t = %{customdata:.3f}<extra></extra>",
-    ))
-    fig_pr.add_trace(go.Scatter(
-        x=[op_recall], y=[op_precision],
-        mode="markers",
-        name="Default threshold (p=0.5)",
-        marker={"color": "crimson", "size": 10, "symbol": "diamond"},
-    ))
+    fig_pr.add_trace(
+        go.Scatter(
+            x=[0, 1],
+            y=[baseline, baseline],
+            mode="lines",
+            name=f"Random baseline ({baseline:.2f})",
+            line={"color": "grey", "width": 1, "dash": "dash"},
+        )
+    )
+    fig_pr.add_trace(
+        go.Scatter(
+            x=pr_recall,
+            y=pr_precision,
+            mode="lines",
+            name="LogReg",
+            line={"color": "steelblue", "width": 2},
+            fill="tozeroy",
+            fillcolor="rgba(70, 130, 180, 0.12)",
+            customdata=pr_thresholds_padded,
+            hovertemplate="Recall: %{x:.3f}<br>Precision: %{y:.3f}<br>t = %{customdata:.3f}<extra></extra>",
+        )
+    )
+    fig_pr.add_trace(
+        go.Scatter(
+            x=[op_recall],
+            y=[op_precision],
+            mode="markers",
+            name="Default threshold (p=0.5)",
+            marker={"color": "crimson", "size": 10, "symbol": "diamond"},
+        )
+    )
     fig_pr.update_layout(
         title="Precision-Recall Curve: Explicit Content",
         xaxis={"title": "Recall", "range": [0, 1]},
@@ -368,8 +379,11 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(MinMaxScaler, X_test_exp, X_train_exp, pymde):
     from scipy.sparse import vstack as _vstack
+
     X_combined_exp = _vstack([X_train_exp, X_test_exp])
-    mde_exp = pymde.preserve_neighbors(X_combined_exp, embedding_dim=2, verbose=False)
+    mde_exp = pymde.preserve_neighbors(
+        X_combined_exp, embedding_dim=2, verbose=False
+    )
     embedding_exp = mde_exp.embed(verbose=False).numpy()
     n_train_exp = X_train_exp.shape[0]
     coords_train_exp = embedding_exp[:n_train_exp]
@@ -592,6 +606,89 @@ def _(X_test, classification_report, logreg, mo, nb, y_test):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ## Cross-Validation
+
+    Instead of a single train/test split, 5-fold stratified cross-validation cycles through all training data: each fold holds out a different 20% as a validation set while the other 80% is used for fitting. This gives five accuracy estimates from which we can compute a mean and standard deviation, making it easier to judge whether one model is consistently better.
+
+    The full held-out test set is kept separate and used only in the classification reports below.
+    """)
+    return
+
+
+@app.cell
+def _(X_train, logreg, nb, np, y_train):
+    from sklearn.model_selection import StratifiedKFold, cross_val_score
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    nb_cv_scores = cross_val_score(nb, X_train, y_train, cv=cv, scoring="accuracy")
+    logreg_cv_scores = cross_val_score(
+        logreg, X_train, y_train, cv=cv, scoring="accuracy"
+    )
+
+    for cv_name, cv_scores in [
+        ("Naive Bayes", nb_cv_scores),
+        ("Logistic Regression", logreg_cv_scores),
+    ]:
+        print(
+            f"{cv_name}: {np.round(cv_scores, 3)} | mean={cv_scores.mean():.3f} | std={cv_scores.std():.3f}"
+        )
+    return logreg_cv_scores, nb_cv_scores
+
+
+@app.cell(hide_code=True)
+def _(go, logreg_cv_scores, nb_cv_scores):
+    folds = [f"Fold {i + 1}" for i in range(len(nb_cv_scores))]
+
+    fig_cv = go.Figure()
+    fig_cv.add_trace(
+        go.Bar(
+            name="Naive Bayes",
+            x=folds,
+            y=nb_cv_scores,
+            marker_color="darkorange",
+            text=[f"{s:.3f}" for s in nb_cv_scores],
+            textposition="outside",
+        )
+    )
+    fig_cv.add_trace(
+        go.Bar(
+            name="Logistic Regression",
+            x=folds,
+            y=logreg_cv_scores,
+            marker_color="steelblue",
+            text=[f"{s:.3f}" for s in logreg_cv_scores],
+            textposition="outside",
+        )
+    )
+    fig_cv.add_hline(
+        y=nb_cv_scores.mean(),
+        line_dash="dot",
+        line_color="darkorange",
+        annotation_text=f"NB mean: {nb_cv_scores.mean():.3f}",
+        annotation_position="top left",
+    )
+    fig_cv.add_hline(
+        y=logreg_cv_scores.mean(),
+        line_dash="dot",
+        line_color="steelblue",
+        annotation_text=f"LR mean: {logreg_cv_scores.mean():.3f}",
+        annotation_position="top right",
+    )
+    fig_cv.update_layout(
+        title="5-Fold Cross-Validation Accuracy: Decade Prediction",
+        barmode="group",
+        yaxis={"title": "Accuracy", "range": [0, 0.6]},
+        xaxis_title="Fold",
+        legend={"orientation": "h"},
+    )
+    fig_cv
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## Feature Importance: Most Distinctive Words per Decade
 
     Select a decade to see which words drive each classifier's decision.
@@ -686,6 +783,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(MinMaxScaler, X_test, X_train, pymde):
     from scipy.sparse import vstack as _vstack
+
     X_combined = _vstack([X_train, X_test])
     mde = pymde.preserve_neighbors(X_combined, embedding_dim=2, verbose=False)
     embedding_all = mde.embed(verbose=False).numpy()
