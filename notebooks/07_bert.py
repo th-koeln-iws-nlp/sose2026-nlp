@@ -404,8 +404,6 @@ def _(
     test_labels,
     test_texts,
     torch,
-    train_labels,
-    train_texts,
 ):
     if not eval_run_btn.value:
         bert_results = None
@@ -440,10 +438,10 @@ def _(
                     )
             return preds
 
-        train_preds = predict_texts(train_texts)
+        # train_preds = predict_texts(train_texts)
         test_preds = predict_texts(test_texts)
 
-        train_f1 = float(f1_score(train_labels, train_preds, average="weighted"))
+        # train_f1 = float(f1_score(train_labels, train_preds, average="weighted"))
         test_f1 = float(f1_score(test_labels, test_preds, average="weighted"))
 
         decade_names = [id2label[i] for i in sorted(id2label)]
@@ -455,16 +453,14 @@ def _(
         )
 
         bert_results = {
-            "train_f1": train_f1,
+            # "train_f1": train_f1,
             "test_f1": test_f1,
             "per_class_report": per_class_report,
         }
 
         _out = mo.vstack(
             [
-                mo.md(
-                    f"**Train weighted F1: {train_f1:.4f}** | **Test weighted F1: {test_f1:.4f}**"
-                ),
+                mo.md(f" | **Test weighted F1: {test_f1:.4f}**"),
                 mo.md(f"```\n{report_str}\n```"),
             ]
         )
