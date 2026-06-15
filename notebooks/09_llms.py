@@ -25,13 +25,14 @@ def _():
 @app.cell
 def _():
     import os
+    import time
     import pandas as pd
     from dotenv import load_dotenv
     from google import genai
     from google.genai import types
     from openai import OpenAI
 
-    return OpenAI, genai, load_dotenv, os, pd, types
+    return OpenAI, genai, load_dotenv, os, pd, time, types
 
 
 @app.cell
@@ -154,9 +155,10 @@ def _(GEMINI_MODEL, mo, owui_models, provider_dropdown):
 
 
 @app.cell
-def _(GEMINI_MODEL, gen_client, types):
+def _(GEMINI_MODEL, gen_client, time, types):
     def call_gemini(system: str, user: str, temperature: float = 0.0):
-        """Returns (response_text, usage) where usage = {input, output, total}."""
+        """Returns (response_text, usage) where usage = {input, output, total, latency}."""
+        t0 = time.perf_counter()
         resp = gen_client.models.generate_content(
             model=GEMINI_MODEL,
             contents=user,
@@ -166,9 +168,10 @@ def _(GEMINI_MODEL, gen_client, types):
             ),
         )
         usage = {
-            "input":  resp.usage_metadata.prompt_token_count or 0,
-            "output": resp.usage_metadata.candidates_token_count or 0,
-            "total":  resp.usage_metadata.total_token_count or 0,
+            "input":   resp.usage_metadata.prompt_token_count or 0,
+            "output":  resp.usage_metadata.candidates_token_count or 0,
+            "total":   resp.usage_metadata.total_token_count or 0,
+            "latency": time.perf_counter() - t0,
         }
         return resp.text.strip(), usage
 
@@ -176,9 +179,10 @@ def _(GEMINI_MODEL, gen_client, types):
 
 
 @app.cell
-def _(model_dropdown, owui_client):
+def _(model_dropdown, owui_client, time):
     def call_owui(system: str, user: str, temperature: float = 0.0):
-        """Returns (response_text, usage) where usage = {input, output, total}."""
+        """Returns (response_text, usage) where usage = {input, output, total, latency}."""
+        t0 = time.perf_counter()
         resp = owui_client.chat.completions.create(
             model=model_dropdown.value,
             messages=[
@@ -188,9 +192,10 @@ def _(model_dropdown, owui_client):
             temperature=temperature,
         )
         usage = {
-            "input":  resp.usage.prompt_tokens,
-            "output": resp.usage.completion_tokens,
-            "total":  resp.usage.total_tokens,
+            "input":   resp.usage.prompt_tokens,
+            "output":  resp.usage.completion_tokens,
+            "total":   resp.usage.total_tokens,
+            "latency": time.perf_counter() - t0,
         }
         return resp.choices[0].message.content.strip(), usage
 
@@ -230,11 +235,12 @@ def _(
         for r in records:
             k = r["run"]
             if k not in agg:
-                agg[k] = {"input": 0, "output": 0, "total": 0, "calls": 0}
-            agg[k]["input"]  += r["input"]
-            agg[k]["output"] += r["output"]
-            agg[k]["total"]  += r["total"]
-            agg[k]["calls"]  += 1
+                agg[k] = {"input": 0, "output": 0, "total": 0, "latency": 0.0, "calls": 0}
+            agg[k]["input"]   += r["input"]
+            agg[k]["output"]  += r["output"]
+            agg[k]["total"]   += r["total"]
+            agg[k]["latency"] += r.get("latency", 0.0)
+            agg[k]["calls"]   += 1
 
         rows = []
         for run_label, a in agg.items():
@@ -243,28 +249,31 @@ def _(
                 + a["output"] / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
             ) if is_paid else 0.0
             rows.append({
-                "Run":           run_label,
-                "Calls":         a["calls"],
-                "Input tokens":  a["input"],
-                "Output tokens": a["output"],
-                "Total tokens":  a["total"],
-                "Cost (EUR)":    f"{cost:.5f}",
+                "Run":            run_label,
+                "Calls":          a["calls"],
+                "Input tokens":   a["input"],
+                "Output tokens":  a["output"],
+                "Total tokens":   a["total"],
+                "Latency (s)":    f"{a['latency']:.2f}",
+                "Cost (EUR)":     f"{cost:.5f}",
             })
 
-        grand_in  = sum(r["input"]  for r in records)
-        grand_out = sum(r["output"] for r in records)
-        grand_all = sum(r["total"]  for r in records)
+        grand_in      = sum(r["input"]           for r in records)
+        grand_out     = sum(r["output"]          for r in records)
+        grand_all     = sum(r["total"]           for r in records)
+        grand_latency = sum(r.get("latency", 0.0) for r in records)
         grand_cost = (
             grand_in  / 1e6 * GEMINI_INPUT_PRICE_PER_1M
             + grand_out / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
         ) if is_paid else 0.0
         rows.append({
-            "Run":           "TOTAL",
-            "Calls":         sum(a["calls"] for a in agg.values()),
-            "Input tokens":  grand_in,
-            "Output tokens": grand_out,
-            "Total tokens":  grand_all,
-            "Cost (EUR)":    f"{grand_cost:.5f}",
+            "Run":            "TOTAL",
+            "Calls":          sum(a["calls"] for a in agg.values()),
+            "Input tokens":   grand_in,
+            "Output tokens":  grand_out,
+            "Total tokens":   grand_all,
+            "Latency (s)":    f"{grand_latency:.2f}",
+            "Cost (EUR)":     f"{grand_cost:.5f}",
         })
 
         return mo.ui.table(pd.DataFrame(rows))
