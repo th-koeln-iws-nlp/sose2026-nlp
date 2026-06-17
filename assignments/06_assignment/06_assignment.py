@@ -29,7 +29,18 @@ def _():
     from openai import OpenAI
     from sklearn.metrics import f1_score, classification_report
 
-    return OpenAI, classification_report, f1_score, genai, load_dotenv, mo, os, pd, px, types
+    return (
+        OpenAI,
+        classification_report,
+        f1_score,
+        genai,
+        load_dotenv,
+        mo,
+        os,
+        pd,
+        px,
+        types,
+    )
 
 
 @app.cell(hide_code=True)
@@ -82,7 +93,7 @@ def _(df):
 @app.cell
 def _(load_dotenv, os, genai):
     load_dotenv()
-    gen_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    gen_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"), vertexai=True)
     return (gen_client,)
 
 

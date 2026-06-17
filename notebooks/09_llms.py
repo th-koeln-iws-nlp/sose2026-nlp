@@ -39,7 +39,7 @@ def _():
 def _(genai, load_dotenv, os):
     load_dotenv()
     _api_key = os.getenv("GEMINI_API_KEY")
-    gen_client = genai.Client(api_key=_api_key)
+    gen_client = genai.Client(api_key=_api_key, vertexai=True)
     return (gen_client,)
 
 
@@ -72,7 +72,7 @@ def _():
 
     # Gemini 3 Flash Preview pricing, June 2026 (EUR per 1M tokens)
     # Self-hosted models cost 0 -- update here if Gemini pricing changes
-    GEMINI_INPUT_PRICE_PER_1M  = 0.50
+    GEMINI_INPUT_PRICE_PER_1M = 0.50
     GEMINI_OUTPUT_PRICE_PER_1M = 3.00
 
     LYRICS_CHAR_LIMIT = 1500
@@ -168,9 +168,9 @@ def _(GEMINI_MODEL, gen_client, time, types):
             ),
         )
         usage = {
-            "input":   resp.usage_metadata.prompt_token_count or 0,
-            "output":  resp.usage_metadata.candidates_token_count or 0,
-            "total":   resp.usage_metadata.total_token_count or 0,
+            "input": resp.usage_metadata.prompt_token_count or 0,
+            "output": resp.usage_metadata.candidates_token_count or 0,
+            "total": resp.usage_metadata.total_token_count or 0,
             "latency": time.perf_counter() - t0,
         }
         return resp.text.strip(), usage
@@ -187,14 +187,14 @@ def _(model_dropdown, owui_client, time):
             model=model_dropdown.value,
             messages=[
                 {"role": "system", "content": system},
-                {"role": "user",   "content": user},
+                {"role": "user", "content": user},
             ],
             temperature=temperature,
         )
         usage = {
-            "input":   resp.usage.prompt_tokens,
-            "output":  resp.usage.completion_tokens,
-            "total":   resp.usage.total_tokens,
+            "input": resp.usage.prompt_tokens,
+            "output": resp.usage.completion_tokens,
+            "total": resp.usage.total_tokens,
             "latency": time.perf_counter() - t0,
         }
         return resp.choices[0].message.content.strip(), usage
@@ -235,46 +235,64 @@ def _(
         for r in records:
             k = r["run"]
             if k not in agg:
-                agg[k] = {"input": 0, "output": 0, "total": 0, "latency": 0.0, "calls": 0}
-            agg[k]["input"]   += r["input"]
-            agg[k]["output"]  += r["output"]
-            agg[k]["total"]   += r["total"]
+                agg[k] = {
+                    "input": 0,
+                    "output": 0,
+                    "total": 0,
+                    "latency": 0.0,
+                    "calls": 0,
+                }
+            agg[k]["input"] += r["input"]
+            agg[k]["output"] += r["output"]
+            agg[k]["total"] += r["total"]
             agg[k]["latency"] += r.get("latency", 0.0)
-            agg[k]["calls"]   += 1
+            agg[k]["calls"] += 1
 
         rows = []
         for run_label, a in agg.items():
             cost = (
-                a["input"]  / 1e6 * GEMINI_INPUT_PRICE_PER_1M
-                + a["output"] / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
-            ) if is_paid else 0.0
-            rows.append({
-                "Run":            run_label,
-                "Calls":          a["calls"],
-                "Input tokens":   a["input"],
-                "Output tokens":  a["output"],
-                "Total tokens":   a["total"],
-                "Latency (s)":    f"{a['latency']:.2f}",
-                "Cost (EUR)":     f"{cost:.5f}",
-            })
+                (
+                    a["input"] / 1e6 * GEMINI_INPUT_PRICE_PER_1M
+                    + a["output"] / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
+                )
+                if is_paid
+                else 0.0
+            )
+            rows.append(
+                {
+                    "Run": run_label,
+                    "Calls": a["calls"],
+                    "Input tokens": a["input"],
+                    "Output tokens": a["output"],
+                    "Total tokens": a["total"],
+                    "Latency (s)": f"{a['latency']:.2f}",
+                    "Cost (EUR)": f"{cost:.5f}",
+                }
+            )
 
-        grand_in      = sum(r["input"]           for r in records)
-        grand_out     = sum(r["output"]          for r in records)
-        grand_all     = sum(r["total"]           for r in records)
+        grand_in = sum(r["input"] for r in records)
+        grand_out = sum(r["output"] for r in records)
+        grand_all = sum(r["total"] for r in records)
         grand_latency = sum(r.get("latency", 0.0) for r in records)
         grand_cost = (
-            grand_in  / 1e6 * GEMINI_INPUT_PRICE_PER_1M
-            + grand_out / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
-        ) if is_paid else 0.0
-        rows.append({
-            "Run":            "TOTAL",
-            "Calls":          sum(a["calls"] for a in agg.values()),
-            "Input tokens":   grand_in,
-            "Output tokens":  grand_out,
-            "Total tokens":   grand_all,
-            "Latency (s)":    f"{grand_latency:.2f}",
-            "Cost (EUR)":     f"{grand_cost:.5f}",
-        })
+            (
+                grand_in / 1e6 * GEMINI_INPUT_PRICE_PER_1M
+                + grand_out / 1e6 * GEMINI_OUTPUT_PRICE_PER_1M
+            )
+            if is_paid
+            else 0.0
+        )
+        rows.append(
+            {
+                "Run": "TOTAL",
+                "Calls": sum(a["calls"] for a in agg.values()),
+                "Input tokens": grand_in,
+                "Output tokens": grand_out,
+                "Total tokens": grand_all,
+                "Latency (s)": f"{grand_latency:.2f}",
+                "Cost (EUR)": f"{grand_cost:.5f}",
+            }
+        )
 
         return mo.ui.table(pd.DataFrame(rows))
 
@@ -328,20 +346,22 @@ def _(
         _lyrics = str(_row["lyrics"])[:LYRICS_CHAR_LIMIT]
         _text, _u = call_model(system="", user=f"Genre, one word:\n\n{_lyrics}")
         usage_raw_call = [{"run": "raw call", **_u}]
-        raw_call_output = mo.vstack([
-            mo.md(f"**Model response:** `{_text}`"),
-            mo.md(
-                f"**Tokens used:** input {_u['input']}, "
-                f"output {_u['output']}, total {_u['total']}"
-            ),
-            mo.callout(
+        raw_call_output = mo.vstack(
+            [
+                mo.md(f"**Model response:** `{_text}`"),
                 mo.md(
-                    "Text in, text out. The model returned something, "
-                    "but we cannot rely on its format in code."
+                    f"**Tokens used:** input {_u['input']}, "
+                    f"output {_u['output']}, total {_u['total']}"
                 ),
-                kind="info",
-            ),
-        ])
+                mo.callout(
+                    mo.md(
+                        "Text in, text out. The model returned something, "
+                        "but we cannot rely on its format in code."
+                    ),
+                    kind="info",
+                ),
+            ]
+        )
 
     raw_call_output
     return (usage_raw_call,)
@@ -383,24 +403,28 @@ def _(
     if unstructured_button.value and song_dropdown.value is not None:
         _row = filtered_df.loc[song_dropdown.value]
         _lyrics = str(_row["lyrics"])[:LYRICS_CHAR_LIMIT]
-        _raw, _u = call_model(system="", user=f"What genre is this song?\n\n{_lyrics}")
+        _raw, _u = call_model(
+            system="", user=f"What genre is this song?\n\n{_lyrics}"
+        )
         usage_unstructured = [{"run": "unstructured", **_u}]
         _parsed = _raw.strip().lower()
         _valid = _parsed in [g.lower() for g in allowed_genres]
-        unstructured_output = mo.vstack([
-            mo.md(f"**Raw response:**\n\n> {_raw}"),
-            mo.md(f"**After `.strip().lower()`:** `{_parsed}`"),
-            mo.callout(
-                mo.md(
-                    "This response does not match any allowed label. "
-                    "It is not usable by a program."
-                    if not _valid else
-                    "This happened to be a valid label, "
-                    "but the output format is not guaranteed."
+        unstructured_output = mo.vstack(
+            [
+                mo.md(f"**Raw response:**\n\n> {_raw}"),
+                mo.md(f"**After `.strip().lower()`:** `{_parsed}`"),
+                mo.callout(
+                    mo.md(
+                        "This response does not match any allowed label. "
+                        "It is not usable by a program."
+                        if not _valid
+                        else "This happened to be a valid label, "
+                        "but the output format is not guaranteed."
+                    ),
+                    kind="danger" if not _valid else "warn",
                 ),
-                kind="danger" if not _valid else "warn",
-            ),
-        ])
+            ]
+        )
 
     unstructured_output
     return (usage_unstructured,)
@@ -433,10 +457,14 @@ def _(allowed_genres):
 @app.cell
 def _(SYSTEM_PROMPT, mo):
     classify_button = mo.ui.run_button(label="Classify")
-    mo.vstack([
-        mo.accordion({"View system prompt": mo.md(f"```\n{SYSTEM_PROMPT}\n```")}),
-        classify_button,
-    ])
+    mo.vstack(
+        [
+            mo.accordion(
+                {"View system prompt": mo.md(f"```\n{SYSTEM_PROMPT}\n```")}
+            ),
+            classify_button,
+        ]
+    )
     return (classify_button,)
 
 
@@ -470,17 +498,23 @@ def _(
 
         _retried = len(usage_system_prompt) > 1
         _correct = _pred.lower() == _true_genre.lower()
-        classify_output = mo.vstack([
-            mo.md(
-                f"**Prediction:** `{_pred}` | "
-                f"**True genre:** `{_true_genre}`"
-                + (" | _retried once_" if _retried else "")
-            ),
-            mo.callout(
-                mo.md("Correct." if _correct else f"Wrong -- true genre is **{_true_genre}**."),
-                kind="success" if _correct else "danger",
-            ),
-        ])
+        classify_output = mo.vstack(
+            [
+                mo.md(
+                    f"**Prediction:** `{_pred}` | "
+                    f"**True genre:** `{_true_genre}`"
+                    + (" | _retried once_" if _retried else "")
+                ),
+                mo.callout(
+                    mo.md(
+                        "Correct."
+                        if _correct
+                        else f"Wrong -- true genre is **{_true_genre}**."
+                    ),
+                    kind="success" if _correct else "danger",
+                ),
+            ]
+        )
 
     classify_output
     return (usage_system_prompt,)
@@ -507,8 +541,7 @@ def _(mo):
 @app.cell
 def _(filtered_df):
     few_shot_pool = (
-        filtered_df
-        .groupby("genre")
+        filtered_df.groupby("genre")
         .sample(n=2, random_state=99)
         .reset_index(drop=True)
     )
@@ -544,17 +577,27 @@ def _(
             f"Lyrics:\n{str(ex['lyrics'])[:LYRICS_CHAR_LIMIT]}\nGenre: {ex['genre']}"
             for _, ex in few_shot_pool.iterrows()
         )
-        _pred, _u = call_model(system=SYSTEM_PROMPT, user=f"{_examples}\n\nLyrics:\n{_lyrics}\nGenre:")
+        _pred, _u = call_model(
+            system=SYSTEM_PROMPT, user=f"{_examples}\n\nLyrics:\n{_lyrics}\nGenre:"
+        )
         usage_few_shot = [{"run": "few-shot", **_u}]
 
         _correct = _pred.lower() == _row["genre"].lower()
-        few_shot_output = mo.vstack([
-            mo.md(f"**Prediction:** `{_pred}` | **True genre:** `{_row['genre']}`"),
-            mo.callout(
-                mo.md("Correct." if _correct else f"Wrong -- true genre is **{_row['genre']}**."),
-                kind="success" if _correct else "danger",
-            ),
-        ])
+        few_shot_output = mo.vstack(
+            [
+                mo.md(
+                    f"**Prediction:** `{_pred}` | **True genre:** `{_row['genre']}`"
+                ),
+                mo.callout(
+                    mo.md(
+                        "Correct."
+                        if _correct
+                        else f"Wrong -- true genre is **{_row['genre']}**."
+                    ),
+                    kind="success" if _correct else "danger",
+                ),
+            ]
+        )
 
     few_shot_output
     return (usage_few_shot,)
@@ -602,23 +645,27 @@ def _(
 
         temperature_rows = []
         for _temp in [0.0, 0.7, 1.2]:
-            _pred, _u = call_model(system=SYSTEM_PROMPT, user=_lyrics, temperature=_temp)
+            _pred, _u = call_model(
+                system=SYSTEM_PROMPT, user=_lyrics, temperature=_temp
+            )
             usage_temperature.append({"run": f"temp={_temp}", **_u})
             temperature_rows.append({"Temperature": _temp, "Prediction": _pred})
 
-        temperature_output = mo.vstack([
-            mo.ui.table(pd.DataFrame(temperature_rows)),
-            mo.callout(
-                mo.md(
-                    "Temperature 0 minimizes randomness and is the most reproducible setting. "
-                    "In practice, GPU batch processing means results can still vary slightly "
-                    "between runs even at temperature 0. "
-                    "Higher temperatures add deliberate randomness on top of that -- "
-                    "the model may produce invalid labels or add extra text."
+        temperature_output = mo.vstack(
+            [
+                mo.ui.table(pd.DataFrame(temperature_rows)),
+                mo.callout(
+                    mo.md(
+                        "Temperature 0 minimizes randomness and is the most reproducible setting. "
+                        "In practice, GPU batch processing means results can still vary slightly "
+                        "between runs even at temperature 0. "
+                        "Higher temperatures add deliberate randomness on top of that -- "
+                        "the model may produce invalid labels or add extra text."
+                    ),
+                    kind="info",
                 ),
-                kind="info",
-            ),
-        ])
+            ]
+        )
 
     temperature_output
     return (usage_temperature,)
