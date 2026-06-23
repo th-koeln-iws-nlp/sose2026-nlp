@@ -577,6 +577,7 @@ def _(
             f"Lyrics:\n{str(ex['lyrics'])[:LYRICS_CHAR_LIMIT]}\nGenre: {ex['genre']}"
             for _, ex in few_shot_pool.iterrows()
         )
+        print(_examples)
         _pred, _u = call_model(
             system=SYSTEM_PROMPT, user=f"{_examples}\n\nLyrics:\n{_lyrics}\nGenre:"
         )
