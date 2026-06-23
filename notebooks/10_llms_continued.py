@@ -102,15 +102,15 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Session 10: LLMs Continued -- Structured Output and Evaluation
+    # Session 10: LLMs Continued: Structured Output and Evaluation
 
     Text in, text out works for reading. It breaks the moment your program needs to
     parse the result. This session covers three fixes and one bridge:
 
-    1. **The blob** -- plain prose, nice to read, useless to a program
-    2. **Structured output** -- schema enforced by the API, validated with Pydantic
-    3. **Few-shot style** -- real examples teach voice and style, not just format
-    4. **LLM-as-judge** -- when you cannot auto-score, ask a model to score for you
+    1. **Unstructured text**: plain prose, nice to read, useless to a program
+    2. **Structured output**: schema enforced by the API, validated with Pydantic
+    3. **Few-shot style**: real examples teach voice and style, not just format
+    4. **LLM-as-judge**: when you cannot auto-score, ask a model to score for you
     """)
     return
 
@@ -244,7 +244,7 @@ def _(call_gemini, call_owui, provider_dropdown):
 def _(mo):
     mo.md(r"""
     ---
-    ## Step 1: The Blob
+    ## Step 1: Unstructured Text
 
     Prompt plainly: "Write a song in the style of {artist} about {topic}."
     The model returns readable prose or markdown. Then try `json.loads` on it.
@@ -254,16 +254,16 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    blob_button = mo.ui.run_button(label="Generate")
-    blob_button
-    return (blob_button,)
+    unstructured_button = mo.ui.run_button(label="Generate")
+    unstructured_button
+    return (unstructured_button,)
 
 
 @app.cell
-def _(artist_dropdown, blob_button, call_model, json, mo, topic_input):
-    blob_output = mo.md("_Enter a topic and click Generate._")
+def _(artist_dropdown, call_model, json, mo, topic_input, unstructured_button):
+    unstructured_output = mo.md("_Enter a topic and click Generate._")
 
-    if blob_button.value and topic_input.value:
+    if unstructured_button.value and topic_input.value:
         _prompt = f"Write a song in the style of {artist_dropdown.value} about {topic_input.value}."
         _text, _u = call_model(system="", user=_prompt, temperature=0.9)
 
@@ -283,14 +283,14 @@ def _(artist_dropdown, blob_button, call_model, json, mo, topic_input):
                 kind="danger",
             )
 
-        blob_output = mo.vstack(
+        unstructured_output = mo.vstack(
             [
                 mo.md(f"**Raw response:**\n\n{_text}"),
                 _parse_result,
             ]
         )
 
-    blob_output
+    unstructured_output
     return
 
 
@@ -300,7 +300,7 @@ def _(mo):
     ---
     ## Step 2: Demand JSON
 
-    We pass the Pydantic schema directly to the API -- Gemini via `response_schema`,
+    We pass the Pydantic schema directly to the API: Gemini via `response_schema`,
     Open WebUI via `response_format: json_object`. The API enforces the structure,
     so we get back clean JSON and validate with Pydantic.
     """)
@@ -362,7 +362,7 @@ def _(mo):
     ---
     ## Step 3: Few-shot Style
 
-    The zero-shot song has the right structure -- but does it sound like the artist?
+    The zero-shot song has the right structure, but does it sound like the artist?
     We pull real songs from the dataset and inject them as `<example>` blocks.
     The model sees actual vocabulary, rhythm, and phrasing before it writes.
     """)
@@ -449,7 +449,7 @@ def _(mo):
     ---
     ## Step 4: How Do You Grade This?
 
-    You cannot compute F1 on a generated song -- there is no ground truth label.
+    You cannot compute F1 on a generated song: there is no ground truth label.
     One proxy: ask a fresh model call to rate the output.
     We request a score from 1 to 5 and one sentence of reasoning.
 
