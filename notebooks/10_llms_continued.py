@@ -209,7 +209,11 @@ def _(json, model_dropdown, owui_client, time):
                 system
                 + f"\n\nReturn ONLY valid JSON matching this schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
             )
-        extra = {"response_format": {"type": "json_object"}} if schema is not None else {}
+        extra = (
+            {"response_format": {"type": "json_object"}}
+            if schema is not None
+            else {}
+        )
         resp = owui_client.chat.completions.create(
             model=model_dropdown.value,
             messages=[

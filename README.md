@@ -38,7 +38,7 @@ uv sync
 
 ### Bachelor DIS
 - The exams are in groups of three (i.e. your team) on the 9th and 10th of July in the afternoon
-- There are three broad categories text processing & statistics (sessions 2 - 4), text classification (sessions 4 - 8), and LLMs (sessions 9 - 11) 
+- There are three broad categories text processing & statistics (sessions 2 - 4), text classification (sessions 4 - 8), and LLMs (sessions 9 - 10) 
 - You distribute the categories among the team
 - Each team member starts with presenting one completely new approach within their category which was not discussed during the lecture and exercises. For example
     - A new statistic and visualization

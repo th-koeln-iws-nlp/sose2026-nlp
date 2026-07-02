@@ -30,6 +30,7 @@ dependencies = [
     "transformers-interpret>=0.6.0",
     "sentence-transformers>=5.5.1",
     "bertopic>=0.16.0",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]
