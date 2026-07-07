@@ -31,9 +31,30 @@ import requests
 from google import genai
 from google.genai import errors as genai_errors
 from openai import OpenAI
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 OWUI_BASE_URL = "https://iwschat.service.kitegg.hs-mainz.de/api/"
 OWUI_FALLBACK_MODEL = os.environ.get("OWUI_FALLBACK_MODEL", "Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf")
+
+
+# ---------------------------------------------------------------------------
+# Quiz question schema (must match QuizQuestion.question_data in
+# code_agent/quiz-bot-streamlit/api.py)
+# ---------------------------------------------------------------------------
+
+class QuizQuestionData(BaseModel):
+    options: list[str]
+    correct: list[int]
+
+
+class GeneratedQuestion(BaseModel):
+    question_text: str
+    question_data: QuizQuestionData
+    explanation: str
+    sort_order: int
+
+
+QuestionList = TypeAdapter(list[GeneratedQuestion])
 
 ADMIN_GITHUB_USERNAMES = {"richardsiegth", "RichardSiegTH"}
 COURSE_HUB_URL = os.environ["COURSE_HUB_URL"].rstrip("/")
@@ -118,6 +139,7 @@ def generate_quiz_json(system_prompt: str, user_message: str) -> str:
                 system_instruction=system_prompt,
                 temperature=0.4,
                 response_mime_type="application/json",
+                response_schema=list[GeneratedQuestion],
             ),
         )
         return (response.text or "").strip()
@@ -130,14 +152,23 @@ def generate_quiz_json(system_prompt: str, user_message: str) -> str:
     if not owui_api_key:
         raise RuntimeError("Gemini unavailable and OPEN_WEB_UI_API_KEY is not set")
 
+    schema_hint = json.dumps(QuestionList.json_schema(), indent=2)
     owui_client = OpenAI(base_url=OWUI_BASE_URL, api_key=owui_api_key)
     resp = owui_client.chat.completions.create(
         model=OWUI_FALLBACK_MODEL,
         messages=[
-            {"role": "system", "content": system_prompt + "\n\nRespond with valid JSON only, no markdown fences."},
+            {
+                "role": "system",
+                "content": (
+                    system_prompt
+                    + "\n\nRespond with valid JSON only, no markdown fences. "
+                    + f"The JSON must be an array matching this schema:\n{schema_hint}"
+                ),
+            },
             {"role": "user", "content": user_message},
         ],
         temperature=0.4,
+        response_format={"type": "json_object"},
     )
     return (resp.choices[0].message.content or "").strip()
 
@@ -180,7 +211,13 @@ def main(repo_owner: str, repo_name: str, issue_number: int, session_number: int
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
 
-    base_questions = json.loads(raw)
+    try:
+        questions_parsed = QuestionList.validate_json(raw)
+    except ValidationError as e:
+        print(f"ERROR: quiz JSON did not match the expected schema:\n{e}\n\nRaw response:\n{raw}")
+        sys.exit(1)
+
+    base_questions = [q.model_dump() for q in questions_parsed]
     print(f"Generated {len(base_questions)} questions")
 
     # 4. Upload for each team member individually
